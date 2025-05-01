@@ -1,5 +1,8 @@
-from app import app
+from app import app, db
+from app.models import User, Profile, Favourite
+from werkzeug.security import generate_password_hash, check_password_hash
 from flask import jsonify, request
+from datetime import datetime
 
 @app.route('/', methods=['GET'])
 def index():
@@ -9,15 +12,61 @@ def index():
 @app.route('/api/register', methods=['POST'])
 def register_user():
     data = request.json
-    # Logic to save user information to the database
+
+    # Extract fields
+    username = data.get('username')
+    password = data.get('password')
+    name = data.get('name')
+    email = data.get('email')
+    photo = data.get('photo')  # Could be a URL or base64 string
+
+    # Basic validation
+    if not all([username, password, name, email]):
+        return jsonify(error="All fields (username, password, name, email) are required."), 400
+
+    # Check if username or email already exists
+    if User.query.filter_by(username=username).first():
+        return jsonify(error="Username already taken."), 409
+    if User.query.filter_by(email=email).first():
+        return jsonify(error="Email already registered."), 409
+    
+
+    # Hash the password
+    hashed_password = generate_password_hash(data['password'])
+
+
+
+    # Create new user instance
+    new_user = User(
+        username=username,
+        password=hashed_password,
+        name=name,
+        email=email,
+        photo=photo or '',
+        date_joined=datetime.utcnow()
+    )
+
+    # Save to database
+    db.session.add(new_user)
+    db.session.commit()
+
     return jsonify(message="User registered successfully"), 201
+
 
 ####### ROUTE TO LOGIN A USER #######
 @app.route('/api/auth/login', methods=['POST'])
 def login_user():
     data = request.json
-    # Logic to authenticate user
-    return jsonify(message="User logged in successfully"), 200
+
+    if not data or not data.get('username') or not data.get('password'):
+        return jsonify(error="Username and password are required"), 400
+
+    user = User.query.filter_by(username=data['username'], password=data['password']).first()
+
+    if not user or not check_password_hash(user.password, data['password']):
+        return jsonify(error="Invalid username or password"), 401
+
+    return jsonify(message="User logged in successfully", user_id=user.id), 200
 
 ####### ROUTE TO LOGOUT A USER #######
 @app.route('/api/auth/logout', methods=['POST'])
