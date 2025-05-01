@@ -1,8 +1,6 @@
 from app import db
 from datetime import datetime
 
-
-
 ####### USER MODEL #######
 class User(db.Model):
     __tablename__ = 'users'
@@ -14,6 +12,13 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     photo = db.Column(db.String(200))  # This could be a URL or file path
     date_joined = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # One-to-one relationship with Profile
+    profile = db.relationship('Profile', back_populates='user', uselist=False)
+
+    # Relationships for favourites
+    favourites_given = db.relationship('Favourite', foreign_keys='Favourite.user_id_fk', back_populates='user')
+    favourites_received = db.relationship('Favourite', foreign_keys='Favourite.fav_user_id_fk', back_populates='fav_user')
 
     def __repr__(self):
         return f'<User {self.username}>'
@@ -34,16 +39,18 @@ class Profile(db.Model):
     height = db.Column(db.Float)
     fav_cuisine = db.Column(db.String(100))
     fav_colour = db.Column(db.String(50))
-    fav_school_sibject = db.Column(db.String(100))
+    fav_school_subject = db.Column(db.String(100)) 
     political = db.Column(db.Boolean, default=False)
     religious = db.Column(db.Boolean, default=False)
     family_oriented = db.Column(db.Boolean, default=False)
 
-    user = db.relationship('User', backref=db.backref('profile', uselist=False))
+    # Link to user
+    user = db.relationship('User', back_populates='profile')
 
     def __repr__(self):
         return f'<Profile for User ID {self.user_id_fk}>'
     
+
 ####### FAVOURITE MODEL #######
 class Favourite(db.Model):
     __tablename__ = 'favourites'
@@ -52,8 +59,8 @@ class Favourite(db.Model):
     user_id_fk = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     fav_user_id_fk = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
-    user = db.relationship('User', foreign_keys=[user_id_fk], backref='favourites_given')
-    fav_user = db.relationship('User', foreign_keys=[fav_user_id_fk], backref='favourites_received')
+    user = db.relationship('User', foreign_keys=[user_id_fk], back_populates='favourites_given')
+    fav_user = db.relationship('User', foreign_keys=[fav_user_id_fk], back_populates='favourites_received')
 
     def __repr__(self):
         return f'<Favourite: User {self.user_id_fk} -> User {self.fav_user_id_fk}>'
