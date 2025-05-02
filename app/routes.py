@@ -1,5 +1,5 @@
 from flask import jsonify, request
-from app import app, db
+from app.app import app, db
 from app.models import User, Profile, Favourite
 import jwt
 from werkzeug.security import generate_password_hash, check_password_hash
