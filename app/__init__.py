@@ -1,3 +1,11 @@
+### Group Members ###
+# Roshaun Marshall - 620154268
+# Saaeen Grant - 620155794
+# Tariq Davy - 620154200
+# Paul Bailey - 620154531
+# Rahjay Jones - 620154157
+
+
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
