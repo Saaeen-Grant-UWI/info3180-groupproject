@@ -1,130 +1,182 @@
+from flask import jsonify, request
 from app import app, db
 from app.models import User, Profile, Favourite
+import jwt
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask import jsonify, request
-from datetime import datetime
+from datetime import datetime, timedelta
 
-@app.route('/', methods=['GET'])
+from functools import wraps
+
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = None
+        if 'Authorization' in request.headers:
+            auth_header = request.headers['Authorization']
+            if auth_header.startswith('Bearer '):
+                token = auth_header.split(' ')[1]
+
+        if not token:
+            return jsonify(error='Token is missing!'), 401
+
+        try:
+            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+            current_user = User.query.get(data['user_id'])
+        except Exception as e:
+            return jsonify(error='Token is invalid or expired!'), 401
+
+        return f(current_user, *args, **kwargs)
+    return decorated
+
+@app.route('/')
 def index():
     return jsonify(message="Hello, World!")
 
-####### ROUTE TO REGISTER A USER #######
 @app.route('/api/register', methods=['POST'])
 def register_user():
     data = request.json
-
-    # Extract fields
     username = data.get('username')
     password = data.get('password')
     name = data.get('name')
     email = data.get('email')
-    photo = data.get('photo')  # Could be a URL or base64 string
+    photo = data.get('photo')
 
-    # Basic validation
     if not all([username, password, name, email]):
-        return jsonify(error="All fields (username, password, name, email) are required."), 400
+        return jsonify(error="All fields are required."), 400
 
-    # Check if username or email already exists
     if User.query.filter_by(username=username).first():
         return jsonify(error="Username already taken."), 409
     if User.query.filter_by(email=email).first():
         return jsonify(error="Email already registered."), 409
-    
 
-    # Hash the password
-    hashed_password = generate_password_hash(data['password'])
-
-
-
-    # Create new user instance
-    new_user = User(
-        username=username,
-        password=hashed_password,
-        name=name,
-        email=email,
-        photo=photo or '',
-        date_joined=datetime.utcnow()
-    )
-
-    # Save to database
+    hashed_password = generate_password_hash(password)
+    new_user = User(username=username, password=hashed_password, name=name, email=email, photo=photo or '')
     db.session.add(new_user)
     db.session.commit()
 
     return jsonify(message="User registered successfully"), 201
 
-
-####### ROUTE TO LOGIN A USER #######
 @app.route('/api/auth/login', methods=['POST'])
 def login_user():
     data = request.json
-
     if not data or not data.get('username') or not data.get('password'):
         return jsonify(error="Username and password are required"), 400
 
-    user = User.query.filter_by(username=data['username'], password=data['password']).first()
-
+    user = User.query.filter_by(username=data['username']).first()
     if not user or not check_password_hash(user.password, data['password']):
-        return jsonify(error="Invalid username or password"), 401
+        return jsonify(error="Invalid credentials"), 401
 
-    return jsonify(message="User logged in successfully", user_id=user.id), 200
+    payload = {
+        'user_id': user.id,
+        'username': user.username,
+        'exp': datetime.utcnow() + timedelta(hours=1)
+    }
+    token = jwt.encode(payload, app.config['SECRET_KEY'], algorithm='HS256')
 
-####### ROUTE TO LOGOUT A USER #######
+    return jsonify(message="Login successful", token=token), 200
+
 @app.route('/api/auth/logout', methods=['POST'])
 def logout_user():
-    # Logic to logout user
     return jsonify(message="User logged out successfully"), 200
 
-####### ROUTE TO GET ALL PROFILES #######
 @app.route('/api/profiles', methods=['GET'])
-def get_profiles():
-    # Logic to return all profiles
-    return jsonify(profiles=[]), 200
+@token_required
+def get_profiles(current_user):
+    profiles = Profile.query.order_by(Profile.created_at.desc()).limit(4).all()
+    return jsonify(profiles=[p.to_dict() for p in profiles]), 200
 
-####### ROUTE TO ADD A NEW PROFILE #######
 @app.route('/api/profiles', methods=['POST'])
-def add_profile():
+@token_required
+def add_profile(current_user):
     data = request.json
-    # Logic to add a new profile
+    profile = Profile(user_id=current_user.id, **data)
+    db.session.add(profile)
+    db.session.commit()
     return jsonify(message="Profile added successfully"), 201
 
-####### ROUTE TO GET DETAILS OF A SPECIFIC PROFILE #######
 @app.route('/api/profiles/<int:profile_id>', methods=['GET'])
-def get_profile(profile_id):
-    # Logic to get profile details
-    return jsonify(profile={}), 200
+@token_required
+def get_profile(current_user, profile_id):
+    profile = Profile.query.get_or_404(profile_id)
+    return jsonify(profile=profile.to_dict()), 200
 
-####### ROUTE TO ADD A USER TO FAVOURITES #######
 @app.route('/api/profiles/<int:user_id>/favourite', methods=['POST'])
-def add_to_favourites(user_id):
-    # Logic to add user to favourites
+@token_required
+def add_to_favourites(current_user, user_id):
+    if Favourite.query.filter_by(user_id=current_user.id, favourite_id=user_id).first():
+        return jsonify(message="Already in favourites"), 409
+
+    fav = Favourite(user_id=current_user.id, favourite_id=user_id)
+    db.session.add(fav)
+    db.session.commit()
     return jsonify(message="User added to favourites"), 201
 
-####### ROUTE TO GET MATCHING PROFILES
-@app.route('/api/profiles/matches/<int:profile_id>', methods=['GET'])
-def get_matching_profiles(profile_id):
-    # Logic to get matching profiles
-    return jsonify(matches=[]), 200
-
-####### ROUTE TO SEARCH FOR PROFILES #######
 @app.route('/api/search', methods=['GET'])
-def search_profiles():
-    # Logic to search profiles by criteria
-    return jsonify(results=[]), 200
+@token_required
+def search_profiles(current_user):
+    query = Profile.query
+    name = request.args.get('name')
+    birth_year = request.args.get('birth_year')
+    sex = request.args.get('sex')
+    race = request.args.get('race')
 
-####### ROUTE TO GET DETAILS OF A USER #######
+    if name:
+        query = query.filter(Profile.name.ilike(f"%{name}%"))
+    if birth_year:
+        query = query.filter_by(birth_year=birth_year)
+    if sex:
+        query = query.filter_by(sex=sex)
+    if race:
+        query = query.filter_by(race=race)
+
+    results = [p.to_dict() for p in query.all()]
+    return jsonify(results=results), 200
+
+@app.route('/api/profiles/matches/<int:profile_id>', methods=['GET'])
+@token_required
+def get_matching_profiles(current_user, profile_id):
+    main = Profile.query.get_or_404(profile_id)
+    candidates = Profile.query.filter(Profile.id != main.id).all()
+    matches = []
+
+    for c in candidates:
+        age_diff = abs(main.birth_year - c.birth_year)
+        height_diff = abs(main.height - c.height)
+        match_count = sum([
+            main.fav_cuisine == c.fav_cuisine,
+            main.fav_colour == c.fav_colour,
+            main.fav_school_subject == c.fav_school_subject,
+            main.political == c.political,
+            main.religious == c.religious,
+            main.family_oriented == c.family_oriented
+        ])
+
+        if age_diff <= 5 and 3 <= height_diff <= 10 and match_count >= 3:
+            matches.append(c.to_dict())
+
+    return jsonify(matches=matches), 200
+
 @app.route('/api/users/<int:user_id>', methods=['GET'])
-def get_user(user_id):
-    # Logic to get user details
-    return jsonify(user={user_id}), 200
+@token_required
+def get_user(current_user, user_id):
+    user = User.query.get_or_404(user_id)
+    return jsonify(user={"id": user.id, "username": user.username, "name": user.name, "email": user.email}), 200
 
-####### ROUTE TO GET USERS THAT A USER HAS FAVOURED #######
 @app.route('/api/users/<int:user_id>/favourites', methods=['GET'])
-def get_user_favourites(user_id):
-    # Logic to get user's favourites
-    return jsonify(favourites=[]), 200
+@token_required
+def get_user_favourites(current_user, user_id):
+    favs = Favourite.query.filter_by(user_id=user_id).all()
+    fav_ids = [f.favourite_id for f in favs]
+    users = User.query.filter(User.id.in_(fav_ids)).all()
+    return jsonify(favourites=[{"id": u.id, "username": u.username} for u in users]), 200
 
-####### ROUTE TO GET THE TOP N FAVOURED USERS #######
 @app.route('/api/users/favourites/<int:n>', methods=['GET'])
-def get_top_favoured_users(n):
-    # Logic to get top N favoured users
-    return jsonify(top_favourites=[]), 200
+@token_required
+def get_top_favoured_users(current_user, n):
+    favs = db.session.query(Favourite.favourite_id, db.func.count().label('count'))\
+                .group_by(Favourite.favourite_id)\
+                .order_by(db.desc('count'))\
+                .limit(n).all()
+    top_ids = [f.favourite_id for f in favs]
+    users = User.query.filter(User.id.in_(top_ids)).all()
+    return jsonify(top_favourites=[{"id": u.id, "username": u.username} for u in users]), 200
