@@ -24,3 +24,6 @@ db.init_app(app)
 migrate.init_app(app, db)
 
 from app import routes, models
+
+if __name__ == '__main__':
+    app.run()
