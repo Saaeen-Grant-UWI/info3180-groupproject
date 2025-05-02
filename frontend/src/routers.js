@@ -7,15 +7,14 @@ import UserProfile from '@/views/UserProfile.vue'
 import NewProfile from '@/views/NewProfile.vue'
 import ProfileDetails from '@/views/ProfileDetails.vue'
 import FavouritesReport from '@/views/FavouritesReport.vue'
-import { name } from "@vue/eslint-config-prettier/skip-formatting";
 
 
 const routes = [
-  // {
-  //   path: '/',
-  //   name: 'Home',
-  //   component: HomePage
-  // },
+  {
+    path: '/',
+    name: 'Home',
+    component: HomePage
+  },
   {
     path: '/register',
     name: 'Register',
