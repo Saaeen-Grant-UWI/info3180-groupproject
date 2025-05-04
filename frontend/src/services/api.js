@@ -1,9 +1,8 @@
 import axios from 'axios';
 
 const api = axios.create({
-
-  isDevelopment : process.env.NODE_ENV === 'development',
-  baseURL : isDevelopment ? "http://localhost:5000/api" : "https://info3180-groupproject.onrender.com/api",
+  // baseURL : "http://localhost:8000/api",
+  baseURL : "https://info3180-groupproject.onrender.com/api",
 });
 
 
