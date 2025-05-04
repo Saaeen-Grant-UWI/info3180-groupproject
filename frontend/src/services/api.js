@@ -1,8 +1,12 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api',
+
+  isDevelopment : process.env.NODE_ENV === 'development',
+  baseURL : isDevelopment ? "http://localhost:5000/api" : "https://info3180-groupproject.onrender.com/api",
 });
+
+
 
 // Add a request interceptor to include the JWT token
 api.interceptors.request.use(
