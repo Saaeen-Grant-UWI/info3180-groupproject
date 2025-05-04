@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+env/
+venv/
+instance/
+.mypy_cache/
+.pytest_cache/
+*.sqlite3
+
+# Flask / Env
+.env
+*.env
+.env.*
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Vue
+frontend/dist/
+frontend/node_modules/
+
+# Migrations (optional, keep if not using version control for it)
+migrations/__pycache__/
+migrations/versions/*.pyc
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
