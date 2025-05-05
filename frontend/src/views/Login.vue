@@ -1,37 +1,78 @@
-// src/views/Login.vue
 <template>
-  <div class="p-4 max-w-md mx-auto">
-    <h2 class="text-2xl font-bold mb-4">Login</h2>
+  <div class="container mt-5">
+    <h2 class="mb-4">Login</h2>
+    <div v-if="error" class="alert alert-danger">{{ error }}</div>
     <form @submit.prevent="login">
-      <input v-model="form.username" placeholder="Username" class="input" required />
-      <input type="password" v-model="form.password" placeholder="Password" class="input" required />
-      <button type="submit" class="btn">Login</button>
+      <div class="mb-3">
+        <label for="username" class="form-label">Username</label>
+        <input v-model="username" type="text" class="form-control" id="username" required />
+      </div>
+
+      <div class="mb-3">
+        <label for="password" class="form-label">Password</label>
+        <div class="input-group">
+          <input :type="showPassword ? 'text' : 'password'" v-model="password" class="form-control" id="password" required />
+          <button type="button" class="btn btn-outline-secondary" @click="showPassword = !showPassword">
+            <i :class="showPassword ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
+          </button>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary">Login</button>
     </form>
-    <p v-if="error" class="text-red-500 mt-2">{{ error }}</p>
   </div>
 </template>
 
-<script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import axios from 'axios'
+<script>
+import { inject } from 'vue'
+import { jwtDecode } from 'jwt-decode'
+import api from '@/services/api'
 
-const router = useRouter()
-const form = ref({ username: '', password: '' })
-const error = ref('')
+export default {
+  name: 'Login',
+  data() {
+    return {
+      username: '',
+      password: '',
+      showPassword: false,
+      error: ''
+    }
+  },
+  setup() {
+    const authState = inject('authState')
+    return { authState }
+  },
+  methods: {
+    async login() {
+      try {
+        const response = await api.post('/auth/login', {
+          username: this.username,
+          password: this.password
+        })
 
-const login = async () => {
-  try {
-    const res = await axios.post('/api/auth/login', form.value)
-    localStorage.setItem('token', res.data.token)
-    router.push('/')
-  } catch (err) {
-    error.value = err.response?.data?.error || 'Login failed.'
+        const { token } = response.data
+        const decoded = jwtDecode(token)
+
+        // Update the provided authState
+        localStorage.setItem('token', token)
+        localStorage.setItem('user', JSON.stringify({
+          id: decoded.user_id,
+          username: decoded.username
+        }))
+        
+        this.authState.isAuthenticated = true
+        this.authState.userId = decoded.user_id
+        this.authState.username = decoded.username
+
+        this.$router.push('/')
+      } catch (err) {
+        this.error = err.response?.data?.error || 'Login failed'
+      }
+    }
   }
 }
 </script>
 
-<style scoped>
-.input { display: block; margin-bottom: 1rem; padding: 0.5rem; width: 100%; }
-.btn { background-color: #3490dc; color: white; padding: 0.5rem 1rem; border-radius: 0.25rem; }
+<style>
+@import "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css";
 </style>

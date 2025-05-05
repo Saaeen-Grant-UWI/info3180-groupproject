@@ -89,10 +89,29 @@ def get_profiles(current_user):
 @token_required
 def add_profile(current_user):
     data = request.json
-    profile = Profile(user_id=current_user.id, **data)
-    db.session.add(profile)
-    db.session.commit()
-    return jsonify(message="Profile added successfully"), 201
+    try:
+        profile = Profile(
+            user_id_fk=current_user.id,
+            biography=data['description'], 
+            parish=data['parish'],
+            birth_year=data['birth_year'],
+            sex=data['sex'],
+            race=data['race'],
+            height=data['height'],
+            fav_colour=data.get('fav_colour'),
+            fav_cuisine=data.get('fav_cuisine'),
+            fav_school_subject=data.get('fav_school_subject'),
+            political=data.get('political', False),
+            religious=data.get('religious', False),
+            family_oriented=data.get('family_oriented', False)
+        )
+        db.session.add(profile)
+        db.session.commit()
+        return jsonify(message="Profile added successfully"), 201
+    except Exception as e:
+        app.logger.error(f"Profile creation failed: {e}")
+        return jsonify(error=str(e)), 500
+
 
 @app.route('/api/profiles/<int:profile_id>', methods=['GET'])
 @token_required

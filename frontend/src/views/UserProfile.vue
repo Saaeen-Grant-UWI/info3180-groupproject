@@ -1,73 +1,95 @@
 <template>
-    <div class="p-6 max-w-3xl mx-auto">
-      <h1 class="text-2xl font-bold mb-4">My Profile</h1>
-      <div v-if="user" class="bg-white p-4 rounded shadow">
-        <p><strong>Username:</strong> {{ user.username }}</p>
-        <p><strong>Name:</strong> {{ user.name }}</p>
-        <p><strong>Email:</strong> {{ user.email }}</p>
-      </div>
-  
-      <h2 class="text-xl font-semibold mt-6 mb-2">My Favourites</h2>
-      <div v-if="favourites.length > 0" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div
-          v-for="fav in favourites"
-          :key="fav.id"
-          class="border p-4 rounded bg-gray-50"
-        >
-          <p><strong>Username:</strong> {{ fav.username }}</p>
-          <router-link :to="{ name: 'UserProfile', params: { user_id: fav.id } }" class="text-blue-600 hover:underline">
-            View Profile
-          </router-link>
+  <div class="container mt-4">
+    <h2>My Profiles</h2>
+
+    <div v-if="profiles.length === 0" class="text-muted">You have no profiles yet.</div>
+
+    <div class="row row-cols-1 row-cols-md-2 g-4">
+      <div v-for="profile in profiles" :key="profile.id" class="col">
+        <div class="card shadow h-100">
+          <div class="card-body">
+            <h5 class="card-title">{{ profile.name }}</h5>
+            <p class="card-text">{{ profile.description }}</p>
+            <p><strong>Birth Year:</strong> {{ profile.birth_year }}</p>
+            <p><strong>Sex:</strong> {{ profile.sex }}</p>
+            <p><strong>Race:</strong> {{ profile.race }}</p>
+            <p><strong>Height:</strong> {{ profile.height }} inches</p>
+            <p><strong>Parish:</strong> {{ profile.parish }}</p>
+
+            <p><strong>Favourites:</strong></p>
+            <ul v-if="profile.favourites && profile.favourites.length">
+              <li v-for="fav in profile.favourites" :key="fav.id">
+                {{ fav.name }} ({{ fav.sex }}, {{ fav.race }})
+              </li>
+            </ul>
+            <p v-else class="text-muted">No favourites for this profile.</p>
+
+            <button class="btn btn-outline-success mt-2" @click="matchMe(profile.id)">Match Me</button>
+
+            <div v-if="matches[profile.id]" class="mt-3">
+              <h6>Matches:</h6>
+              <ul>
+                <li v-for="match in matches[profile.id]" :key="match.id">
+                  {{ match.name }} ({{ match.sex }}, {{ match.race }}, Age: {{ getAge(match.birth_year) }})
+                </li>
+              </ul>
+            </div>
+
+          </div>
         </div>
       </div>
-      <div v-else>
-        <p>You haven't favourited anyone yet.</p>
-      </div>
     </div>
-  </template>
-  
-  <script>
-  import axios from 'axios'
-  
-  export default {
-    name: 'UserProfile',
-    props: ['user_id'],
-    data() {
-      return {
-        user: null,
-        favourites: [],
-      }
+
+    <router-link to="/profiles/new" class="btn btn-primary">
+      <i class="bi bi-plus-lg"></i> Create New Profile
+    </router-link>
+  </div>
+</template>
+
+<script>
+import axios from 'axios'
+
+export default {
+  name: 'UserProfile',
+  data() {
+    return {
+      profiles: [],
+      matches: {}
+    }
+  },
+  methods: {
+    fetchUserProfiles() {
+      axios.get('/api/user/profiles', {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      })
+      .then(res => {
+        this.profiles = res.data.profiles || []; // fallback to empty array
+      })
+      .catch(err => {
+        console.error(err);
+        this.profiles = []; // ensure it's at least an empty array
+        alert('Failed to load profiles.');
+      });
     },
-    async created() {
-      const token = localStorage.getItem('token')
-      if (!token) {
-        this.$router.push('/login')
-        return
-      }
-  
-      try {
-        const headers = { Authorization: `Bearer ${token}` }
-  
-        const [userRes, favsRes] = await Promise.all([
-          axios.get(`/api/users/${this.user_id}`, { headers }),
-          axios.get(`/api/users/${this.user_id}/favourites`, { headers }),
-        ])
-  
-        this.user = userRes.data.user
-        this.favourites = favsRes.data.favourites
-      } catch (err) {
-        console.error(err)
-        if (err.response && err.response.status === 401) {
-          this.$router.push('/login')
-        }
-      }
+    matchMe(profileId) {
+      axios.get(`/api/profiles/${profileId}/match`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      })
+      .then(res => {
+        this.$set(this.matches, profileId, res.data.matches);
+      })
+      .catch(err => {
+        console.error(err);
+        alert('Failed to get matches.');
+      });
     },
+    getAge(birthYear) {
+      const currentYear = new Date().getFullYear();
+      return currentYear - birthYear;
+    }
+  },
+  mounted() {
+    this.fetchUserProfiles();
   }
-  </script>
-  
-  <style scoped>
-  p {
-    margin-bottom: 0.5rem;
-  }
-  </style>
-  
+}
+</script>

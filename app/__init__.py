@@ -26,6 +26,7 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 
 db.init_app(app)
 migrate.init_app(app, db)
-CORS(app)
+
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 from app import routes, models 

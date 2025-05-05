@@ -1,49 +1,104 @@
-// src/views/ProfileDetails.vue
 <template>
-  <div>
-    <h1>Profile Details</h1>
-    <div v-if="profile">
-      <p>Name: {{ profile.name }}</p>
-      <p>Birth Year: {{ profile.birth_year }}</p>
-      <p>Sex: {{ profile.sex }}</p>
-      <p>Race: {{ profile.race }}</p>
-      <p>Height: {{ profile.height }}</p>
-      <p>Favourite Colour: {{ profile.fav_colour }}</p>
-      <button @click="addToFavourites">❤️ Favourite</button>
-      <button>Email Profile</button>
-      <button @click="matchProfile">Match Me</button>
-      <div v-if="matches.length">
-        <h2>Matches</h2>
-        <ul>
-          <li v-for="m in matches" :key="m.id">{{ m.name }} ({{ m.birth_year }})</li>
-        </ul>
+  <div class="container mt-4">
+    <div v-if="profile" class="card">
+      <div class="card-body">
+        <h3 class="card-title">{{ profile.name }}</h3>
+        <p class="card-text">{{ profile.description }}</p>
+        <p><strong>Parish:</strong> {{ profile.parish }}</p>
+        <p><strong>Sex:</strong> {{ profile.sex }}</p>
+        <p><strong>Race:</strong> {{ profile.race }}</p>
+        <p><strong>Birth Year:</strong> {{ profile.birth_year }}</p>
+        <p><strong>Height:</strong> {{ profile.height }} inches</p>
+        <p><strong>Favourite Cuisine:</strong> {{ profile.fav_cuisine }}</p>
+        <p><strong>Favourite Colour:</strong> {{ profile.fav_colour }}</p>
+        <p><strong>Favourite School Subject:</strong> {{ profile.fav_school_subject }}</p>
+        <p><strong>Political:</strong> {{ profile.political ? 'Yes' : 'No' }}</p>
+        <p><strong>Religious:</strong> {{ profile.religious ? 'Yes' : 'No' }}</p>
+        <p><strong>Family Oriented:</strong> {{ profile.family_oriented ? 'Yes' : 'No' }}</p>
+
+        <div class="mt-3">
+          <button class="btn btn-outline-primary" @click="addToFavourites(profile.user_id)">
+            ❤️ Add to Favourites
+          </button>
+          <button class="btn btn-outline-secondary ms-2" @click="getMatchingProfiles">
+            Match Me
+          </button>
+        </div>
+        
+        <div v-if="matches.length > 0" class="mt-4">
+          <h4>Matching Profiles</h4>
+          <div class="row row-cols-1 row-cols-md-2 g-4">
+            <div v-for="match in matches" :key="match.id" class="col">
+              <div class="card h-100 shadow">
+                <div class="card-body">
+                  <h5 class="card-title">{{ match.name }}</h5>
+                  <p class="card-text">{{ match.description }}</p>
+                  <p><strong>Sex:</strong> {{ match.sex }}</p>
+                  <p><strong>Race:</strong> {{ match.race }}</p>
+                  <router-link :to="{ name: 'ProfileDetails', params: { profile_id: match.id } }" class="btn btn-outline-primary me-2">
+                    View Details
+                  </router-link>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import api from '@/services/api';
+import axios from 'axios';
 
 export default {
   name: 'ProfileDetails',
-  props: ['profile_id'],
   data() {
-    return { profile: null, matches: [] };
-  },
-  async mounted() {
-    const res = await api.get(`/profiles/${this.profile_id}`);
-    this.profile = res.data.profile;
+    return {
+      profile: null,
+      matches: []
+    };
   },
   methods: {
-    async addToFavourites() {
-      await api.post(`/profiles/${this.profile.user_id}/favourite`);
-      alert('Added to favourites');
+    fetchProfile() {
+      const profileId = this.$route.params.profile_id;
+      axios.get(`/api/profiles/${profileId}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      })
+      .then(response => {
+        this.profile = response.data.profile;
+      })
+      .catch(error => {
+        console.error(error);
+      });
     },
-    async matchProfile() {
-      const res = await api.get(`/profiles/matches/${this.profile.id}`);
-      this.matches = res.data.matches;
+    addToFavourites(userId) {
+      axios.post(`/api/profiles/${userId}/favourite`, {}, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      })
+      .then(() => {
+        alert('Profile added to favourites!');
+      })
+      .catch(err => {
+        alert(err.response?.data?.message || 'Error adding to favourites.');
+      });
+    },
+    getMatchingProfiles() {
+      const profileId = this.$route.params.profile_id;
+      axios.get(`/api/profiles/matches/${profileId}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      })
+      .then(response => {
+        this.matches = response.data.matches;
+      })
+      .catch(error => {
+        console.error(error);
+      });
     }
+  },
+  mounted() {
+    this.fetchProfile();
   }
 };
 </script>

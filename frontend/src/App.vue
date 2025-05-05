@@ -1,19 +1,34 @@
-
 <template>
-  <div id="app">
+  <div>
     <NavBar />
     <router-view />
   </div>
 </template>
 
-<script setup>
+<script>
+import { provide, reactive } from 'vue'
 import NavBar from './components/NavBar.vue'
 
-defineExpose({
+export default {
   name: 'App',
-  components: {
-    NavBar
-  }
-});
-</script>
+  components: { NavBar },
+  setup() {
+    const authState = reactive({
+      isAuthenticated: !!localStorage.getItem('token'),
+      userId: null,
+      username: ''
+    })
 
+    if (authState.isAuthenticated) {
+      const token = localStorage.getItem('token')
+      const decoded = jwtDecode(token)
+      authState.userId = decoded.user_id
+      authState.username = decoded.username
+    }
+
+    provide('authState', authState)
+
+    return { authState }
+  }
+}
+</script>

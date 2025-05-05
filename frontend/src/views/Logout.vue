@@ -1,16 +1,17 @@
-// src/views/Logout.vue
 <template>
-  <div>Logging out...</div>
+  <div class="container mt-5 text-center">
+    <h4>You have been logged out.</h4>
+    <router-link to="/login" class="btn btn-secondary mt-3">Go to Login</router-link>
+  </div>
 </template>
 
 <script>
-import api from '@/services/api';
-
 export default {
-  async mounted() {
-    await api.post('/auth/logout');
+  created() {
     localStorage.removeItem('token');
-    this.$router.push('/login');
+    localStorage.removeItem('user');
+
+    this.$router.replace('/login');
   }
 };
 </script>
